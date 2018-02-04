@@ -1,7 +1,8 @@
 import re
 
-import pymongo
+from bson import ObjectId
 from bson.dbref import DBRef
+import pymongo
 from pymongo.read_preferences import ReadPreference
 
 from mongoengine import signals
@@ -457,7 +458,8 @@ class Document(BaseDocument, metaclass=TopLevelDocumentMetaclass):
 
         self._clear_changed_fields()
         self._created = False
-
+        if hasattr(self, 'id') and self.id and isinstance(self.id, ObjectId):
+            setattr(self, 'id', str(self.id))
         return self
 
     def _save_create(self, doc, force_insert, write_concern):

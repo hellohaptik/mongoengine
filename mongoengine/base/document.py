@@ -140,7 +140,8 @@ class BaseDocument:
             self._dynamic_lock = False
             for key, value in dynamic_data.items():
                 setattr(self, key, value)
-
+        if hasattr(self, 'id') and self.id and isinstance(self.id, ObjectId):
+            setattr(self, 'id', str(self.id))
         # Flag initialised
         self._initialised = True
         self._created = _created
