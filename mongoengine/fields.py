@@ -113,6 +113,7 @@ class StringField(BaseField):
         self.regex = re.compile(regex) if regex else None
         self.max_length = max_length
         self.min_length = min_length
+        kwargs.setdefault('default', lambda: '')
         super().__init__(**kwargs)
 
     def to_python(self, value):
