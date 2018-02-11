@@ -515,7 +515,8 @@ class ObjectIdField(BaseField):
             try:
                 return ObjectId(str(value))
             except Exception as e:
-                self.error(str(e))
+                if not (self.null and value is None):
+                    self.error(str(e))
         return value
 
     def prepare_query_value(self, op, value):
