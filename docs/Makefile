@@ -27,13 +27,22 @@ help:
 	@echo "  linkcheck to check all external links for integrity"
 	@echo "  doctest   to run all doctests embedded in the documentation (if enabled)"
 
+install-deps:
+	-pip install -r requirements.txt
+
 clean:
 	-rm -rf $(BUILDDIR)/*
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
+	@echo "Build finished. Check $(BUILDDIR)/html/index.html"
+
+html-readthedocs:
+	$(SPHINXBUILD) -T -E -b readthedocs $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml

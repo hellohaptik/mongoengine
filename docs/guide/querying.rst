@@ -64,7 +64,7 @@ Available operators are as follows:
 * ``gt`` -- greater than
 * ``gte`` -- greater than or equal to
 * ``not`` -- negate a standard check, may be used before other operators (e.g.
-  ``Q(age__not__mod=5)``)
+  ``Q(age__not__mod=(5, 0))``)
 * ``in`` -- value is in list (a list of values should be provided)
 * ``nin`` -- value is not in list (a list of values should be provided)
 * ``mod`` -- ``value % x == y``, where ``x`` and ``y`` are two provided values
@@ -86,6 +86,10 @@ expressions:
 * ``istartswith`` -- string field starts with value (case insensitive)
 * ``endswith`` -- string field ends with value
 * ``iendswith`` -- string field ends with value (case insensitive)
+* ``wholeword`` -- string field contains whole word
+* ``iwholeword`` -- string field contains whole word (case insensitive)
+* ``regex`` -- string field match by regex
+* ``iregex`` -- string field match by regex (case insensitive)
 * ``match``  -- performs an $elemMatch so you can match an entire document within an array
 
 
@@ -215,19 +219,53 @@ However, this doesn't map well to the syntax so you can also use a capital S ins
 Raw queries
 -----------
 It is possible to provide a raw :mod:`PyMongo` query as a query parameter, which will
-be integrated directly into the query. This is done using the ``__raw__``
-keyword argument::
+be integrated directly into the query. This is done using the ``__raw__`` keyword argument::
 
     Page.objects(__raw__={'tags': 'coding'})
 
-.. versionadded:: 0.4
+Similarly, a raw update can be provided to the :meth:`~mongoengine.queryset.QuerySet.update` method::
+
+    Page.objects(tags='coding').update(__raw__={'$set': {'tags': 'coding'}})
+
+And the two can also be combined::
+
+    Page.objects(__raw__={'tags': 'coding'}).update(__raw__={'$set': {'tags': 'coding'}})
+
+
+Update with Aggregation Pipeline
+--------------------------------
+It is possible to provide a raw :mod:`PyMongo` aggregation update parameter, which will
+be integrated directly into the update. This is done by using ``__raw__`` keyword argument to the update method
+and provide the pipeline as a list
+`Update with Aggregation Pipeline <https://docs.mongodb.com/manual/reference/method/db.collection.updateMany/#update-with-aggregation->`_
+::
+
+    # 'tags' field is set to 'coding is fun'
+    Page.objects(tags='coding').update(__raw__=[
+        {"$set": {"tags": {"$concat": ["$tags", "is fun"]}}}
+        ],
+    )
+
+.. versionadded:: 0.23.2
+
+Sorting/Ordering results
+========================
+It is possible to order the results by 1 or more keys using :meth:`~mongoengine.queryset.QuerySet.order_by`.
+The order may be specified by prepending each of the keys by "+" or "-". Ascending order is assumed if there's no prefix.::
+
+    # Order by ascending date
+    blogs = BlogPost.objects().order_by('date')    # equivalent to .order_by('+date')
+
+    # Order by ascending date first, then descending title
+    blogs = BlogPost.objects().order_by('+date', '-title')
+
 
 Limiting and skipping results
 =============================
 Just as with traditional ORMs, you may limit the number of results returned or
 skip a number or results in you query.
 :meth:`~mongoengine.queryset.QuerySet.limit` and
-:meth:`~mongoengine.queryset.QuerySet.skip` and methods are available on
+:meth:`~mongoengine.queryset.QuerySet.skip` methods are available on
 :class:`~mongoengine.queryset.QuerySet` objects, but the `array-slicing` syntax
 is preferred for achieving this::
 
@@ -349,9 +387,9 @@ Just as with limiting and skipping results, there is a method on a
 You could technically use ``len(User.objects)`` to get the same result, but it
 would be significantly slower than :meth:`~mongoengine.queryset.QuerySet.count`.
 When you execute a server-side count query, you let MongoDB do the heavy
-lifting and you receive a single integer over the wire. Meanwhile, len()
+lifting and you receive a single integer over the wire. Meanwhile, ``len()``
 retrieves all the results, places them in a local cache, and finally counts
-them. If we compare the performance of the two operations, len() is much slower
+them. If we compare the performance of the two operations, ``len()`` is much slower
 than :meth:`~mongoengine.queryset.QuerySet.count`.
 
 Further aggregation
@@ -385,6 +423,25 @@ would be generating "tag-clouds"::
     from operator import itemgetter
     top_tags = sorted(tag_freqs.items(), key=itemgetter(1), reverse=True)[:10]
 
+
+MongoDB aggregation API
+-----------------------
+If you need to run aggregation pipelines, MongoEngine provides an entry point to `Pymongo's aggregation framework <https://api.mongodb.com/python/current/examples/aggregation.html#aggregation-framework>`_
+through :meth:`~mongoengine.queryset.QuerySet.aggregate`. Check out Pymongo's documentation for the syntax and pipeline.
+An example of its use would be::
+
+        class Person(Document):
+            name = StringField()
+
+        Person(name='John').save()
+        Person(name='Bob').save()
+
+        pipeline = [
+            {"$sort" : {"name" : -1}},
+            {"$project": {"_id": 0, "name": {"$toUpper": "$name"}}}
+            ]
+        data = Person.objects().aggregate(pipeline)
+        assert data == [{'name': 'BOB'}, {'name': 'JOHN'}]
 
 Query efficiency and performance
 ================================
@@ -456,14 +513,14 @@ data. To turn off dereferencing of the results of a query use
 :func:`~mongoengine.queryset.QuerySet.no_dereference` on the queryset like so::
 
     post = Post.objects.no_dereference().first()
-    assert(isinstance(post.author, ObjectId))
+    assert(isinstance(post.author, DBRef))
 
 You can also turn off all dereferencing for a fixed period by using the
 :class:`~mongoengine.context_managers.no_dereference` context manager::
 
     with no_dereference(Post) as Post:
         post = Post.objects.first()
-        assert(isinstance(post.author, ObjectId))
+        assert(isinstance(post.author, DBRef))
 
     # Outside the context manager dereferencing occurs.
     assert(isinstance(post.author, User))
@@ -512,7 +569,10 @@ Documents may be updated atomically by using the
 There are several different "modifiers" that you may use with these methods:
 
 * ``set`` -- set a particular value
+* ``set_on_insert`` -- set only if this is new document  `need to add upsert=True`_
 * ``unset`` -- delete a particular value (since MongoDB v1.3)
+* ``max`` -- update only if value is bigger
+* ``min`` -- update only if value is smaller
 * ``inc`` -- increment a value by a given amount
 * ``dec`` -- decrement a value by a given amount
 * ``push`` -- append a value to a list
@@ -521,6 +581,7 @@ There are several different "modifiers" that you may use with these methods:
 * ``pull`` -- remove a value from a list
 * ``pull_all`` -- remove several values from a list
 * ``add_to_set`` -- add value to a list only if its not in the list already
+* ``rename`` -- rename the key name
 
 .. _depending on the value: http://docs.mongodb.org/manual/reference/operator/update/pop/
 
@@ -566,7 +627,8 @@ cannot use the `$` syntax in keyword arguments it has been mapped to `S`::
     ['database', 'mongodb']
 
 From MongoDB version 2.6, push operator supports $position value which allows
-to push values with index.
+to push values with index::
+
     >>> post = BlogPost(title="Test", tags=["mongo"])
     >>> post.save()
     >>> post.update(push__tags__0=["database", "code"])
@@ -577,7 +639,7 @@ to push values with index.
 .. note::
     Currently only top level lists are handled, future versions of mongodb /
     pymongo plan to support nested positional operators.  See `The $ positional
-    operator <http://www.mongodb.org/display/DOCS/Updating#Updating-The%24positionaloperator>`_.
+    operator <https://docs.mongodb.com/manual/tutorial/update-documents/#Updating-The%24positionaloperator>`_.
 
 Server-side javascript execution
 ================================

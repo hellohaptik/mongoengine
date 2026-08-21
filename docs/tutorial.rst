@@ -18,7 +18,7 @@ location --- running it locally will be easier, but if that is not an option
 then it may be run on a remote server. If you haven't installed MongoEngine,
 simply use pip to install it like so::
 
-    $ pip install mongoengine
+    $ python -m pip install mongoengine
 
 Before we can start using MongoEngine, we need to tell it how to connect to our
 instance of :program:`mongod`. For this we use the :func:`~mongoengine.connect`
@@ -86,7 +86,7 @@ of them stand out as particularly intuitive solutions.
 Posts
 ^^^^^
 
-Happily mongoDB *isn't* a relational database, so we're not going to do it that
+Happily MongoDB *isn't* a relational database, so we're not going to do it that
 way. As it turns out, we can use MongoDB's schemaless nature to provide us with
 a much nicer solution. We will store all of the posts in *one collection* and
 each post type will only store the fields it needs. If we later want to add
