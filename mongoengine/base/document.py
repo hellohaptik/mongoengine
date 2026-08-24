@@ -140,7 +140,8 @@ class BaseDocument:
             self._dynamic_lock = False
             for key, value in dynamic_data.items():
                 setattr(self, key, value)
-
+        if hasattr(self, 'id') and self.id and isinstance(self.id, ObjectId):
+            setattr(self, 'id', str(self.id))
         # Flag initialised
         self._initialised = True
         self._created = _created
@@ -372,7 +373,7 @@ class BaseDocument:
                 value = field.generate()
                 self._data[field_name] = value
 
-            if (value is not None) or (field.null):
+            if value is not None or field.null:
                 if use_db_field:
                     data[field.db_field] = value
                 else:
@@ -763,9 +764,9 @@ class BaseDocument:
 
             if value != default:
                 continue
-
-            del set_data[path]
-            unset_data[path] = 1
+            # if type(value) not in [dict, list, str, unicode]:
+            #     del set_data[path]
+            #     unset_data[path] = 1
         return set_data, unset_data
 
     @classmethod
