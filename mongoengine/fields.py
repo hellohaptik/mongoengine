@@ -757,13 +757,12 @@ class EmbeddedDocumentField(BaseField):
             else:
                 resolved_document_type = get_document(self.document_type_obj)
 
-            if not issubclass(resolved_document_type, EmbeddedDocument):
-                # Due to the late resolution of the document_type
-                # There is a chance that it won't be an EmbeddedDocument (#1661)
-                self.error(
-                    "Invalid embedded document class provided to an "
-                    "EmbeddedDocumentField"
-                )
+            # Upstream mongoengine (#1661) validates that a lazily-resolved string
+            # reference is an EmbeddedDocument subclass. This fork intentionally skips
+            # that check: haptik_api relies on referencing a real top-level Document
+            # (e.g. ares.models.NodeModel) from an EmbeddedDocumentListField for its
+            # recursive _unique_with_indexes()/attribute-access behavior, which works
+            # fine via duck-typing even though it isn't a "real" EmbeddedDocument.
             self.document_type_obj = resolved_document_type
 
         return self.document_type_obj
