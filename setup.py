@@ -1,7 +1,6 @@
 import os
 import sys
 
-from pkg_resources import normalize_path
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
 
@@ -54,7 +53,7 @@ class PyTest(TestCommand):
     def run_tests(self):
         # import here, cause outside the eggs aren't loaded
         import pytest
-        from pkg_resources import _namespace_packages
+        from pkg_resources import _namespace_packages, normalize_path
 
         # Purge modules under test from sys.modules. The test loader will
         # re-import them from the build location. Required when 2to3 is used
